@@ -5,7 +5,7 @@ import * as TenantController from "../controllers/TenantController";
 
 const tenantRoutes = express.Router();
 
-// tenantRoutes.post("/tenants", isAuth, TenantController.store);
+tenantRoutes.post("/tenants", TenantController.store);
 tenantRoutes.get(
   "/tenants/business-hours/",
   isAuth,

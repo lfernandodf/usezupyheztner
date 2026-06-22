@@ -1,10 +1,10 @@
 
 const routes = [
   {
-    path: '/',
-    component: () => import('layouts/MainLayout.vue'),
+    path: '/', component: () => import('layouts/MainLayout.vue'),
     redirect: { name: 'contatos' },
     children: [
+      { path: '/cadastro', name: 'cadastro-tenant', component: () => import('pages/tenants/Index.vue') },
       { path: '', component: () => import('pages/contatos/Index.vue') },
       { path: '/home', name: 'home-dashboard', component: () => import('pages/dashboard/Index.vue') },
       { path: '/painel-atendimentos', name: 'painel-atendimentos', component: () => import('pages/dashboard/DashTicketsFilas.vue') },

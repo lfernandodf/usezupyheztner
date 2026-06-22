@@ -99,3 +99,8 @@ export const showBusinessHoursAndMessage = async (
 
   return res.status(200).json(tenant);
 };
+export const store = async (req: Request, res: Response): Promise<Response> => {
+  const { name, email, password } = req.body;
+  const { tenant, user } = await CreateTenantService({ name, email, password });
+  return res.status(200).json({ tenant, user });
+};
