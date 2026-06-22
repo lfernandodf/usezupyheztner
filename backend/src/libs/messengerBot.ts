@@ -16,7 +16,7 @@ export const initMessengerBot = async (
 ): Promise<Session> => {
   try {
     // const io = getIO();
-    const accessToken = 'EAAT...seu_token_aqui...';
+    //const accessToken = 'EAAT...seu_token_aqui...';
     //const accessToken = connection.tokenAPI;
     const accessToken = process.env.FACEBOOK_ACCESS_TOKEN || '';
     const appId = process.env.VUE_FACEBOOK_APP_ID;
