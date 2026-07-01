@@ -31,14 +31,21 @@
       const decoded = verify(token, authConfig.secret);
       const { id, profile, tenantId } = decoded as TokenPayload;
       const user = await User.findByPk(id);
-      if (!user || user.email.indexOf(adminDomain) === 1) {
+      if (!user || (profile === "admin" && user.email.indexOf(adminDomain) === -1)) {
         throw new AppError("Not admin permission", 403);
       }
-  
+      if (profile !== "admin" && profile !== "superadmin") {
+        throw new AppError("Not admin permission", 403);
+      }
+      const selectedTenant = req.headers["x-selected-tenant"] as string;
+
       req.user = {
         id,
         profile,
-        tenantId
+        tenantId:
+          profile === "superadmin" && selectedTenant
+            ? Number(selectedTenant)
+            : tenantId
       };
     } catch (err) {
       throw new AppError("Invalid token or not Admin", 403);

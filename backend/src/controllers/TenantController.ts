@@ -13,7 +13,7 @@ export const updateBusinessHours = async (
 ): Promise<Response> => {
   const { tenantId } = req.user;
 
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -71,7 +71,7 @@ export const updateMessageBusinessHours = async (
 ): Promise<Response> => {
   const { tenantId } = req.user;
 
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

@@ -14,8 +14,11 @@ const service = axios.create({
 
 const handlerError = err => {
   const errorMsg = err?.response?.data?.error
+  const isInfraError = errorMsg && /postgres|database|connection|sql|timeout/i.test(String(errorMsg))
   let error = 'Ocorreu um erro não identificado.'
-  if (errorMsg) {
+  if (isInfraError) {
+    error = 'Sistema temporariamente indisponível. Tente novamente em instantes.'
+  } else if (errorMsg) {
     if (backendErrors[errorMsg]) {
       error = backendErrors[errorMsg]
     } else {
@@ -60,8 +63,14 @@ service.interceptors.request.use(
     const tokenAuth = JSON.parse(localStorage.getItem('token'))
     const token = 'Bearer ' + tokenAuth
     if (token) {
-      // config.headers['Authorization'] = 'Bearer ' + token
       config.headers.Authorization = token
+    }
+
+    const selectedTenantId = localStorage.getItem('selectedTenantId')
+    const requestUrl = config.url || ''
+    const skipSelectedTenantHeader = /\/users\/[^/]+\/configs\/?$/.test(requestUrl)
+    if (selectedTenantId && !skipSelectedTenantHeader) {
+      config.headers['X-Selected-Tenant'] = selectedTenantId
     }
     return config
   },
@@ -117,7 +126,16 @@ service.interceptors.response.use(
         html: true
       })
     } else {
-      // handlerError(error)
+      const fallbackMsg = error?.response?.data?.error || error?.message || ''
+      if (/postgres|database|connection|sql|timeout/i.test(String(fallbackMsg))) {
+        Notify.create({
+          position: 'top',
+          type: 'negative',
+          html: true,
+          progress: true,
+          message: 'Sistema temporariamente indisponível. Tente novamente em instantes.'
+        })
+      }
     }
     return Promise.reject(error.response)
   }

@@ -8,14 +8,19 @@ const isNotViewAssignedTickets = () => {
 const verifySocketTicketAction = (ticket, action = null) => {
   const filtros = JSON.parse(localStorage.getItem('filtrosAtendimento'))
   const usuario = JSON.parse(localStorage.getItem('usuario'))
-  const UserQueues = JSON.parse(localStorage.getItem('queues'))
+  const UserQueues = JSON.parse(localStorage.getItem('queues') || '[]')
   const profile = localStorage.getItem('profile')
+  const isSuperAdmin = profile === 'superadmin'
 
-  const isAdminShowAll = profile === 'admin' && filtros.showAll
+  const isAdminShowAll = (profile === 'admin' || profile === 'superadmin') && filtros.showAll
 
   // Verificar se é admin e se está solicitando para mostrar todos
   if (isAdminShowAll) {
     // console.log('isAdminShowAll', isAdminShowAll)
+    return true
+  }
+
+  if (isSuperAdmin) {
     return true
   }
 
@@ -55,7 +60,8 @@ const verifySocketTicketAction = (ticket, action = null) => {
 
   // verificar se o usuário possui fila liberada
   if (UserQueues.length) {
-    const isQueueUser = UserQueues.findIndex(q => ticket.queueId === q.id)
+    const ticketQueueId = Number(ticket.queueId)
+    const isQueueUser = UserQueues.findIndex(q => Number(q.id) === ticketQueueId)
     if (isQueueUser !== -1) {
       isValid = true
     } else if (!filtros.includeNotQueueDefined) {
@@ -66,7 +72,8 @@ const verifySocketTicketAction = (ticket, action = null) => {
 
   // verificar se a fila do ticket está filtrada
   if (filtros.queuesIds.length) {
-    const isQueue = filtros.queuesIds.findIndex(q => ticket.queueId === q)
+    const ticketQueueId = Number(ticket.queueId)
+    const isQueue = filtros.queuesIds.findIndex(q => Number(q) === ticketQueueId)
     if (isQueue !== -1) {
       isValid = true
     } else {

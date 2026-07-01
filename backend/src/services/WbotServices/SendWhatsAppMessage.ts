@@ -16,6 +16,60 @@ interface Request {
   userId?: number | string | undefined;
 }
 
+const sleep = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, ms));
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+const isMenuMessage = (body: string): boolean => {
+  const text = String(body || "").toLowerCase();
+  const hasZeroOption = /digite\s*0|op[cç][aã]o\s*0/.test(text);
+  const hasMultipleNumberedOptions =
+    (text.match(/\n\s*\d+\s*[-.)]/g) || []).length >= 3 ||
+    (text.match(/\b\d+\b/g) || []).length >= 5;
+
+  return hasZeroOption || hasMultipleNumberedOptions;
+};
+
+const calculateTypingDelay = (body: string): number => {
+  const menuProfile = isMenuMessage(body);
+
+  const minDelay = Number(
+    process.env[
+      menuProfile ? "BOT_TYPING_MENU_MIN_DELAY_MS" : "BOT_TYPING_MIN_DELAY_MS"
+    ] || (menuProfile ? 500 : 900)
+  );
+  const maxDelay = Number(
+    process.env[
+      menuProfile ? "BOT_TYPING_MENU_MAX_DELAY_MS" : "BOT_TYPING_MAX_DELAY_MS"
+    ] || (menuProfile ? 1800 : 3200)
+  );
+  const perCharDelay = Number(
+    process.env[
+      menuProfile
+        ? "BOT_TYPING_MENU_MS_PER_CHAR"
+        : "BOT_TYPING_MS_PER_CHAR"
+    ] || (menuProfile ? 22 : 45)
+  );
+
+  const longMessageThreshold = Number(
+    process.env.BOT_TYPING_LONG_MESSAGE_THRESHOLD || 260
+  );
+  const longMessageExtraDelay = Number(
+    process.env.BOT_TYPING_LONG_MESSAGE_EXTRA_DELAY_MS || 700
+  );
+  const messageLength = String(body || "").trim().length;
+
+  let computed = minDelay + messageLength * perCharDelay;
+
+  if (!menuProfile && messageLength >= longMessageThreshold) {
+    computed += longMessageExtraDelay;
+  }
+
+  return clamp(computed, minDelay, maxDelay);
+};
+
 const SendWhatsAppMessage = async ({
   body,
   ticket,
@@ -29,16 +83,30 @@ const SendWhatsAppMessage = async ({
   }
 
   const wbot = await GetTicketWbot(ticket);
+  const chatId = `${ticket.contact.number}@${ticket.isGroup ? "g" : "c"}.us`;
 
   try {
-    const sendMessage = await wbot.sendMessage(
-      `${ticket.contact.number}@${ticket.isGroup ? "g" : "c"}.us`,
-      body,
-      {
-        quotedMessageId: quotedMsgSerializedId,
-        linkPreview: false // fix: send a message takes 2 seconds when there's a link on message body
+    const typingEnabled = String(
+      process.env.BOT_TYPING_ENABLED || "true"
+    ).toLowerCase() !== "false";
+
+    if (typingEnabled) {
+      const typingDelay = calculateTypingDelay(body);
+      try {
+        const chat = await wbot.getChatById(chatId);
+        await chat.sendStateTyping();
+        await sleep(typingDelay);
+        await chat.clearState();
+      } catch (error) {
+        // Se não conseguir atualizar presença, ainda mantém o atraso de resposta.
+        await sleep(typingDelay);
       }
-    );
+    }
+
+    const sendMessage = await wbot.sendMessage(chatId, body, {
+      quotedMessageId: quotedMsgSerializedId,
+      linkPreview: false // fix: send a message takes 2 seconds when there's a link on message body
+    });
 
     await ticket.update({
       lastMessage: body,

@@ -18,7 +18,7 @@ interface AutoReplyData {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -52,7 +52,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { tenantId } = req.user;
@@ -84,7 +84,7 @@ export const remove = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { tenantId } = req.user;

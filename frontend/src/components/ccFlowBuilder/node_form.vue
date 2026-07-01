@@ -1,20 +1,31 @@
 <template>
   <div class="q-px-md q-py-sm">
     <div class="row justify-between col q-mb-sm">
-      <q-btn
-        rounded
-        color="primary"
-        icon="mdi-plus"
-        label="Nova Etapa"
-        @click="addNode"
-      />
-      <q-btn
-        rounded
-        color="positive"
-        icon="mdi-content-save-outline"
-        label="Salvar"
-        @click="$emit('saveFlow')"
-      />
+      <div class="row q-gutter-sm">
+        <q-btn
+          rounded
+          color="primary"
+          icon="mdi-plus"
+          label="Nova Etapa"
+          @click="addNode"
+        />
+      </div>
+      <div class="row q-gutter-sm">
+        <q-btn
+          rounded
+          color="secondary"
+          icon="mdi-check-decagram"
+          label="Validar"
+          @click="$emit('validateFlow')"
+        />
+        <q-btn
+          rounded
+          color="positive"
+          icon="mdi-content-save-outline"
+          label="Salvar"
+          @click="$emit('saveFlow')"
+        />
+      </div>
     </div>
     <q-card
       bordered
@@ -294,7 +305,7 @@
                               outlined
                               class="full-width"
                               :value="condition.nextStepId || ''"
-                              :options="nodesList.nodeList.filter(n => n.type !== 'configurations')"
+                              :options="nodesList.nodeList.filter(n => n.type === 'node')"
                               option-label="name"
                               option-value="id"
                               label="Etapa"

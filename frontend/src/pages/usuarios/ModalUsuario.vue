@@ -7,10 +7,13 @@
   >
     <q-card style="width: 600px">
       <q-card-section>
-        <div class="text-h6">Cadastrar Usuário</div>
+        <div class="text-h6">{{ modalTitle }}</div>
+        <div v-if="isProfile && passwordOnly" class="text-caption text-grey-7">
+          Informe a nova senha para atualizar seu acesso.
+        </div>
       </q-card-section>
       <q-card-section class="q-col-gutter-sm">
-        <div class="row q-col-gutter-sm">
+        <div class="row q-col-gutter-sm" v-if="!passwordOnly">
           <div class="col-12">
             <c-input
               outlined
@@ -38,7 +41,7 @@
               :validator="$v.usuario.password"
               @blur="$v.usuario.password.$touch"
               :type="isPwd ? 'password' : 'text'"
-              label="Senha"
+              :label="passwordOnly ? 'Nova senha' : 'Senha'"
             >
               <template v-slot:append>
                 <q-icon
@@ -49,7 +52,25 @@
               </template>
             </c-input>
           </div>
-          <div class="col-12">
+          <div class="col-12" v-if="passwordOnly">
+            <c-input
+              outlined
+              v-model="confirmPassword"
+              :validator="$v.confirmPassword"
+              @blur="$v.confirmPassword.$touch"
+              :type="isPwdConfirm ? 'password' : 'text'"
+              label="Confirmar nova senha"
+            >
+              <template v-slot:append>
+                <q-icon
+                  :name="isPwdConfirm ? 'visibility_off' : 'visibility'"
+                  class="cursor-pointer"
+                  @click="isPwdConfirm = !isPwdConfirm"
+                />
+              </template>
+            </c-input>
+          </div>
+          <div class="col-12" v-if="!passwordOnly">
             <q-select
               :disable="isProfile"
               outlined
@@ -88,7 +109,7 @@
 </template>
 
 <script>
-import { required, email, minLength, maxLength } from 'vuelidate/lib/validators'
+import { required, email, minLength, maxLength, sameAs } from 'vuelidate/lib/validators'
 import { CriarUsuario, UpdateUsuarios } from 'src/service/user'
 import { Notify } from 'quasar'
 export default {
@@ -102,6 +123,10 @@ export default {
       type: Boolean,
       default: false
     },
+    passwordOnly: {
+      type: Boolean,
+      default: false
+    },
     usuarioEdicao: {
       type: Object,
       default: () => { return { id: null } }
@@ -110,6 +135,8 @@ export default {
   data () {
     return {
       isPwd: false,
+      isPwdConfirm: false,
+      confirmPassword: '',
       optionsProfile: [
         { value: 'user', label: 'Usuário' },
         { value: 'admin', label: 'Administrador' }
@@ -122,7 +149,28 @@ export default {
       }
     }
   },
+  computed: {
+    modalTitle () {
+      if (this.passwordOnly) return 'Trocar senha'
+      if (this.isProfile) return 'Meu perfil'
+      return this.usuario.id ? 'Editar Usuário' : 'Cadastrar Usuário'
+    }
+  },
   validations () {
+    if (this.passwordOnly) {
+      return {
+        usuario: {
+          password: { required, minLength: minLength(6), maxLength: maxLength(50) }
+        },
+        confirmPassword: {
+          required,
+          sameAsPassword: sameAs(function () {
+            return this.usuario.password
+          })
+        }
+      }
+    }
+
     let usuario = {
       name: { required, minLength: minLength(3), maxLength: maxLength(50) },
       email: { required, email },
@@ -156,6 +204,7 @@ export default {
         this.$emit('update:usuarioEdicao', {})
       }
       this.$emit('update:modalUsuario', false)
+      this.confirmPassword = ''
       this.usuario = {
         name: '',
         email: '',
@@ -163,11 +212,18 @@ export default {
         profile: 'user'
       }
       this.isPwd = false
+      this.isPwdConfirm = false
       this.$v.usuario.$reset()
+      if (this.$v.confirmPassword) {
+        this.$v.confirmPassword.$reset()
+      }
     },
     async handleUsuario () {
       this.$v.usuario.$touch()
-      if (this.$v.usuario.$error) {
+      if (this.$v.confirmPassword) {
+        this.$v.confirmPassword.$touch()
+      }
+      if (this.$v.usuario.$error || (this.$v.confirmPassword && this.$v.confirmPassword.$error)) {
         return this.$q.notify({
           type: 'warning',
           progress: true,
@@ -182,6 +238,31 @@ export default {
       }
 
       try {
+        if (this.passwordOnly && this.usuario.id) {
+          const params = {
+            id: this.usuario.id,
+            email: this.usuario.email,
+            name: this.usuario.name,
+            tenantId: this.usuario.tenantId,
+            password: this.usuario.password
+          }
+
+          await UpdateUsuarios(this.usuario.id, params)
+          this.$q.notify({
+            type: 'positive',
+            progress: true,
+            position: 'top',
+            message: 'Senha atualizada com sucesso!',
+            actions: [{
+              icon: 'close',
+              round: true,
+              color: 'white'
+            }]
+          })
+          this.fecharModal()
+          return
+        }
+
         if (this.usuario.id) {
           const {
             email, id, name, tenantId, password
@@ -222,7 +303,7 @@ export default {
             }]
           })
         }
-        this.$emit('update:modalUsuario', false)
+        this.fecharModal()
       } catch (error) {
         console.error(error, error.data.error === 'ERR_USER_LIMIT_USER_CREATION')
         if (error.data.error === 'ERR_USER_LIMIT_USER_CREATION') {

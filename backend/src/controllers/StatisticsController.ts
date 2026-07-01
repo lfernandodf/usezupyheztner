@@ -29,7 +29,8 @@ export const DashTicketsQueues = async (
     req.query as IndexQuery;
 
   const tickets = await TicketsQueuesService({
-    showAll: profile === "admin" ? showAll : false,
+    showAll:
+      profile === "admin" || profile === "superadmin" ? showAll : false,
     dateStart,
     dateEnd,
     status,
@@ -46,7 +47,7 @@ export const ContactsReport = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  // if (req.user.profile !== "admin") {
+  // if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
   //   throw new AppError("ERR_NO_PERMISSION", 403);
   // }
   const { startDate, endDate, tags, ddds, searchParam } =

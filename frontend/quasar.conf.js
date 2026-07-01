@@ -126,10 +126,12 @@ module.exports = function (ctx) {
     // https://quasar.dev/quasar-cli/developing-pwa/configuring-pwa
     pwa: {
       workboxPluginMode: 'GenerateSW', // 'GenerateSW' or 'InjectManifest'
-      workboxOptions: {}, // only for GenerateSW
+      workboxOptions: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
+      }, // only for GenerateSW
       manifest: {
-        name: 'IZING',
-        short_name: 'IZING',
+        name: 'Usezupy',
+        short_name: 'Usezupy',
         description: 'Bot Multi-atendimento para whatsapp',
         display: 'standalone',
         orientation: 'portrait',
@@ -162,44 +164,92 @@ module.exports = function (ctx) {
             type: 'image/png'
           }
         ]
-      }
-    },
-
-    // Full list of options: https://quasar.dev/quasar-cli/developing-cordova-apps/configuring-cordova
-    cordova: {
-      // noIosLegacyBuildFlag: true, // uncomment only if you know what you are doing
-    },
-
-    // Full list of options: https://quasar.dev/quasar-cli/developing-capacitor-apps/configuring-capacitor
-    capacitor: {
-      hideSplashscreen: true
-    },
-
-    // Full list of options: https://quasar.dev/quasar-cli/developing-electron-apps/configuring-electron
-    electron: {
-      bundler: 'builder', // 'packager' or 'builder'
-
-      packager: {
-        // https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
-
-        // OS X / Mac App Store
-        // appBundleId: '',
-        // appCategoryType: '',
-        // osxSign: '',
-        // protocol: 'myapp://path',
-
-        // Windows only
-        // win32metadata: { ... }
       },
-
-      builder: {
-        // https://www.electron.build/configuration/configuration
-        appId: 'IZING'
+      metaVariablesFn (manifest) {
+        return [
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'theme-color',
+              content: manifest.theme_color
+            }
+          },
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'mobile-web-app-capable',
+              content: 'yes'
+            }
+          },
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'apple-mobile-web-app-status-bar-style',
+              content: 'default'
+            }
+          },
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'apple-mobile-web-app-title',
+              content: manifest.name
+            }
+          },
+          {
+            tagName: 'link',
+            attributes: {
+              rel: 'apple-touch-icon',
+              href: 'icons/apple-icon-120x120.png'
+            }
+          },
+          {
+            tagName: 'link',
+            attributes: {
+              rel: 'apple-touch-icon',
+              sizes: '152x152',
+              href: 'icons/apple-icon-152x152.png'
+            }
+          },
+          {
+            tagName: 'link',
+            attributes: {
+              rel: 'apple-touch-icon',
+              sizes: '167x167',
+              href: 'icons/apple-icon-167x167.png'
+            }
+          },
+          {
+            tagName: 'link',
+            attributes: {
+              rel: 'apple-touch-icon',
+              sizes: '180x180',
+              href: 'icons/apple-icon-180x180.png'
+            }
+          },
+          {
+            tagName: 'link',
+            attributes: {
+              rel: 'mask-icon',
+              href: 'icons/safari-pinned-tab.svg',
+              color: manifest.theme_color
+            }
+          },
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'msapplication-TileImage',
+              content: 'icons/ms-icon-144x144.png'
+            }
+          },
+          {
+            tagName: 'meta',
+            attributes: {
+              name: 'msapplication-TileColor',
+              content: '#000000'
+            }
+          }
+        ]
       },
-
-      // More info: https://quasar.dev/quasar-cli/developing-electron-apps/node-integration
-      nodeIntegration: true,
-
       extendWebpack (/* cfg */) {
         // do something with Electron main process Webpack cfg
         // chainWebpack also available besides this extendWebpack

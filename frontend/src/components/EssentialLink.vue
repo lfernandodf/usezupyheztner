@@ -4,7 +4,7 @@
     v-ripple
     :active="routeName == cRouterName"
     active-class="bg-blue-1 text-grey-8 text-bold menu-link-active-item-top"
-    @click=" () => !(routeName == cRouterName) ? $router.push({ name: routeName }) : ''"
+    @click="navigateToRoute"
     class="houverList"
     :class="{'text-negative text-bolder': color === 'negative'}"
   >
@@ -17,7 +17,7 @@
 
     <q-item-section>
       <q-item-label>{{ title }}</q-item-label>
-      <q-item-label caption>
+      <q-item-label caption>{{caption}}
       </q-item-label>
     </q-item-section>
   </q-item>
@@ -60,6 +60,18 @@ export default {
   computed: {
     cRouterName () {
       return this.$route.name
+    }
+  },
+  methods: {
+    navigateToRoute () {
+      if (this.routeName === this.cRouterName) {
+        return
+      }
+      const target = this.$router.resolve({ name: this.routeName }).route
+      if (target && target.fullPath === this.$route.fullPath) {
+        return
+      }
+      this.$router.push({ name: this.routeName }).catch(() => {})
     }
   }
 }

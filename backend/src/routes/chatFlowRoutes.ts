@@ -6,6 +6,7 @@ import * as ChatFlowController from "../controllers/ChatFlowController";
 const chatFlowRoutes = express.Router();
 
 chatFlowRoutes.post("/chat-flow", isAuth, ChatFlowController.store);
+chatFlowRoutes.post("/chat-flow/validate", isAuth, ChatFlowController.validate);
 chatFlowRoutes.get("/chat-flow", isAuth, ChatFlowController.index);
 chatFlowRoutes.put("/chat-flow/:chatFlowId", isAuth, ChatFlowController.update);
 chatFlowRoutes.delete(

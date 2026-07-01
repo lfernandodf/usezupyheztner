@@ -1,4 +1,5 @@
 import { initWbot } from "../../libs/wbot";
+import { removeWbot } from "../../libs/wbot";
 import Whatsapp from "../../models/Whatsapp";
 import { wbotMessageListener } from "./wbotMessageListener";
 import { getIO } from "../../libs/socket";
@@ -10,9 +11,18 @@ import { StartTbotSession } from "../TbotServices/StartTbotSession";
 import { StartWaba360 } from "../WABA360/StartWaba360";
 import { StartMessengerBot } from "../MessengerChannelServices/StartMessengerBot";
 
+const startingSessions: Record<number, boolean> = {};
+
 export const StartWhatsAppSession = async (
   whatsapp: Whatsapp
 ): Promise<void> => {
+  if (startingSessions[whatsapp.id]) {
+    logger.info(`StartWhatsAppSession already running: ${whatsapp.id}`);
+    return;
+  }
+
+  startingSessions[whatsapp.id] = true;
+
   await whatsapp.update({ status: "OPENING" });
 
   const io = getIO();
@@ -23,6 +33,7 @@ export const StartWhatsAppSession = async (
 
   try {
     if (whatsapp.type === "whatsapp") {
+      removeWbot(whatsapp.id);
       const wbot = await initWbot(whatsapp);
       wbotMessageListener(wbot);
       wbotMonitor(wbot, whatsapp);
@@ -48,5 +59,7 @@ export const StartWhatsAppSession = async (
   } catch (err) {
     logger.error(`StartWhatsAppSession | Error: ${err}`);
     throw new AppError("ERR_START_SESSION", 404);
+  } finally {
+    delete startingSessions[whatsapp.id];
   }
 };

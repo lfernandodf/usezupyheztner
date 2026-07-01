@@ -12,6 +12,7 @@ const routes = [
       { path: '/sessoes', name: 'sessoes', component: () => import('pages/sessaoWhatsapp/Index.vue') },
       { path: '/contatos', name: 'contatos', component: () => import('pages/contatos/Index.vue') },
       { path: '/usuarios', name: 'usuarios', component: () => import('pages/usuarios/Index.vue') },
+      { path: '/tenants', name: 'tenants', component: () => import('pages/tenants/Index.vue') },
       { path: '/auto-resposta', name: 'auto-resposta', component: () => import('pages/fluxoAutoResposta/Index.vue') },
       { path: '/mensagens-rapidas', name: 'mensagens-rapidas', component: () => import('pages/mensagensRapidas/Index.vue') },
       { path: '/filas', name: 'filas', component: () => import('pages/filas/Index.vue') },
@@ -28,6 +29,30 @@ const routes = [
         children: [
           { path: '', name: 'chat-flow', component: () => import('pages/chatFlow/ListaChatFlow.vue') },
           { path: 'builder', name: 'chat-flow-builder', component: () => import('components/ccFlowBuilder/panel.vue') }
+        ]
+      },
+      {
+        path: '/atendimento',
+        name: 'atendimento',
+        component: () => import('pages/atendimento/Index.vue'),
+        redirect: { name: 'chat-empty' },
+        children: [
+          {
+            path: 'chats',
+            name: 'chat-empty',
+            component: () => import('pages/atendimento/Chat.vue')
+          },
+          {
+            path: ':ticketId',
+            name: 'chat',
+            component: () => import('pages/atendimento/Chat.vue')
+          },
+          {
+            path: 'contatos',
+            name: 'chat-contatos',
+            component: () => import('pages/contatos/Index.vue'),
+            props: { isChatContact: true }
+          }
         ]
       }
     ]
@@ -62,37 +87,6 @@ const routes = [
         name: 'contatos-por-estado',
         component: () => import('pages/relatorios/RelatorioContatosEstado')
       }
-    ]
-  },
-  {
-    path: '/atendimento',
-    name: 'atendimento',
-    // redirect: { name: 'chat-empty' },
-    component: () => import('pages/atendimento/Index.vue'),
-    children: [
-      {
-        path: '/chats/',
-        name: 'chat-empty',
-        component: () => import('pages/atendimento/Chat.vue')
-      },
-      {
-        path: ':ticketId',
-        name: 'chat',
-        component: () => import('pages/atendimento/Chat.vue')
-        // beforeEnter (to, from, next) {
-        //   if (!from.params.ticketId) {
-        //     next({ name: 'chat-empty' })
-        //   }
-        //   next()
-        // }
-      },
-      {
-        path: 'contatos',
-        name: 'chat-contatos',
-        component: () => import('pages/contatos/Index.vue'),
-        props: { isChatContact: true }
-      }
-
     ]
   },
 

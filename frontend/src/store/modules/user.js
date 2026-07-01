@@ -1,4 +1,5 @@
 import { RealizarLogin } from '../../service/login'
+import { ListarTenants } from 'src/service/tenants'
 import { Notify, Dark } from 'quasar'
 import { socketIO } from 'src/utils/socket'
 
@@ -21,6 +22,7 @@ const user = {
   state: {
     token: null,
     isAdmin: false,
+    isSuperAdmin: false,
     isSuporte: false
   },
   mutations: {
@@ -35,7 +37,8 @@ const user = {
       state.isSuporte = authorized
     },
     SET_IS_ADMIN (state, payload) {
-      state.isAdmin = !!((state.isSuporte || payload.profile === 'admin'))
+      state.isAdmin = !!((state.isSuporte || payload.profile === 'admin' || payload.profile === 'superadmin'))
+      state.isSuperAdmin = payload.profile === 'superadmin'
     }
   },
   actions: {
@@ -70,15 +73,22 @@ const user = {
           progress: true
         })
 
-        if (data.profile === 'admin') {
-          this.$router.push({
-            name: 'home-dashboard'
-          })
-        } else {
-          this.$router.push({
-            name: 'atendimento'
-          })
+        if (data.profile === 'superadmin') {
+          let selectedTenantId = localStorage.getItem('selectedTenantId')
+          if (!selectedTenantId) {
+            try {
+              const { data: tenants } = await ListarTenants()
+              if (tenants && tenants.length > 0) {
+                selectedTenantId = String(tenants[0].id)
+                localStorage.setItem('selectedTenantId', selectedTenantId)
+              }
+            } catch (error) {
+              console.error('Erro ao carregar tenants', error)
+            }
+          }
         }
+
+        return data
       } catch (error) {
         console.error(error, error.data.error === 'ERROR_NO_PERMISSION_API_ADMIN')
       }

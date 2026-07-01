@@ -54,7 +54,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const userId = req.user.id;
 
-  const { tickets, count, hasMore } = await ListTicketsService({
+  const { tickets, count, hasMore, tabTotals } = await ListTicketsService({
     searchParam,
     pageNumber,
     status,
@@ -69,7 +69,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     profile
   });
 
-  return res.status(200).json({ tickets, count, hasMore });
+  return res.status(200).json({ tickets, count, hasMore, tabTotals });
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {

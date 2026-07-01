@@ -47,10 +47,11 @@ const checkTicketFilter = (ticket) => {
   }
   const filtros = JSON.parse(localStorage.getItem('filtrosAtendimento')) || filtroPadrao
   const usuario = JSON.parse(localStorage.getItem('usuario'))
-  const UserQueues = JSON.parse(localStorage.getItem('queues'))
+  const UserQueues = JSON.parse(localStorage.getItem('queues') || '[]')
   const filasCadastradas = JSON.parse(localStorage.getItem('filasCadastradas') || '[]')
   const profile = localStorage.getItem('profile')
-  const isAdminShowAll = profile === 'admin' && filtros.showAll
+  const isSuperAdmin = profile === 'superadmin'
+  const isAdminShowAll = (profile === 'admin' || isSuperAdmin) && filtros.showAll
   const isQueuesTenantExists = filasCadastradas.length > 0
 
   const userId = usuario?.userId || +localStorage.getItem('userId')
@@ -98,8 +99,9 @@ const checkTicketFilter = (ticket) => {
   let isValid = true
 
   // verificar se o usuário possui fila liberada
-  if (isQueuesTenantExists) {
-    const isQueueUser = UserQueues.findIndex(q => ticket.queueId === q.id)
+  if (isQueuesTenantExists && !isSuperAdmin) {
+    const ticketQueueId = Number(ticket.queueId)
+    const isQueueUser = UserQueues.findIndex(q => Number(q.id) === ticketQueueId)
     if (isQueueUser !== -1) {
       console.log('Fila do ticket liberada para o Usuario', ticket.queueId)
       isValid = true
@@ -111,7 +113,8 @@ const checkTicketFilter = (ticket) => {
 
   // verificar se a fila do ticket está filtrada
   if (isQueuesTenantExists && filtros?.queuesIds.length) {
-    const isQueue = filtros.queuesIds.findIndex(q => ticket.queueId === q)
+    const ticketQueueId = Number(ticket.queueId)
+    const isQueue = filtros.queuesIds.findIndex(q => Number(q) === ticketQueueId)
     if (isQueue == -1) {
       console.log('filas filtradas e diferentes da do ticket', ticket.queueId)
       return false
@@ -401,9 +404,12 @@ const atendimentoTicket = {
         if (!error) return
         const errorMsg = error?.response?.data?.error
         if (errorMsg) {
+          const isInfraError = /postgres|database|connection|sql|timeout/i.test(String(errorMsg))
           Notify.create({
             type: 'negative',
-            message: error.response.data.error,
+            message: isInfraError
+              ? 'Sistema temporariamente indisponível. Tente novamente em instantes.'
+              : error.response.data.error,
             progress: true,
             position: 'top'
           })

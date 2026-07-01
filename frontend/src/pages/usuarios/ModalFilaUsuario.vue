@@ -79,7 +79,8 @@ export default {
   methods: {
     abrirModal () {
       if (this.usuarioSelecionado.id) {
-        this.filasUsuario = [...this.usuarioSelecionado.queues.map(f => f.id)]
+        const queues = this.usuarioSelecionado.queues || []
+        this.filasUsuario = [...queues.map(f => f.id)]
       }
     },
     fecharModal () {

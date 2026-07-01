@@ -14,7 +14,7 @@
         >
           <q-card-section class="text-primary text-center">
             <q-img
-              src="/izing-logo_5_transparent.png"
+              src="/logousezupy_transparent.png?v=2"
               spinner-color="white"
               style="height: 120px; max-width: 300px"
               class="q-mb-lg q-px-md"
@@ -101,12 +101,34 @@
         </q-card>
       </q-page>
 
+      <q-dialog v-model="tenantSelectionDialog" persistent>
+        <q-card style="min-width: 350px; max-width: 600px">
+          <q-card-section class="text-h6">Selecione o tenant</q-card-section>
+          <q-card-section>
+            <q-select
+              v-model="selectedTenantId"
+              :options="tenants.map(t => ({ label: t.name, value: String(t.id) }))"
+              option-value="value"
+              option-label="label"
+              label="Tenant"
+              outlined
+              dense
+            />
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancelar" color="negative" @click="tenantSelectionDialog = false" />
+            <q-btn color="primary" label="Confirmar" @click="confirmTenantSelection" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
     </q-page-container>
   </q-layout>
 </template>
 
 <script>
 import { required, email } from 'vuelidate/lib/validators'
+import { ListarTenants } from 'src/service/tenants'
 
 export default {
   name: 'Login',
@@ -120,7 +142,10 @@ export default {
       },
       contasCliente: {},
       isPwd: true,
-      loading: false
+      loading: false,
+      tenantSelectionDialog: false,
+      tenants: [],
+      selectedTenantId: null
     }
   },
   validations: {
@@ -131,25 +156,63 @@ export default {
     emailRedefinicao: { required, email }
   },
   methods: {
-    fazerLogin () {
+    async fazerLogin () {
       this.$v.form.$touch()
       if (this.$v.form.$error) {
         this.$q.notify('Informe usuário e senha corretamente.')
         return
       }
       this.loading = true
-      this.$store.dispatch('UserLogin', this.form)
-        .then(data => {
-          // if (Object.keys(this.contasCliente).length == 1) {
-          //   // logar direto
-          // }
-          this.loading = false
-          // .params = { modalEscolhaUnidadeNegocio: true }
-        })
-        .catch(err => {
-          console.error('exStore', err)
-          this.loading = false
-        })
+      try {
+        const data = await this.$store.dispatch('UserLogin', this.form)
+        this.loading = false
+
+        if (data.profile === 'superadmin') {
+          const selectedTenantId = localStorage.getItem('selectedTenantId')
+          if (!selectedTenantId) {
+            await this.loadTenantsForSelection()
+            return
+          }
+        }
+
+        if (data.profile === 'admin' || data.profile === 'superadmin') {
+          this.$router.push({ name: 'home-dashboard' })
+        } else {
+          this.$router.push({ name: 'atendimento' })
+        }
+      } catch (err) {
+        console.error('exStore', err)
+        this.loading = false
+      }
+    },
+    async loadTenantsForSelection () {
+      try {
+        const { data } = await ListarTenants()
+        this.tenants = data || []
+        if (this.tenants.length === 0) {
+          this.$q.notify({ type: 'negative', message: 'Nenhum tenant disponível para superadmin.' })
+          return
+        }
+        if (this.tenants.length === 1) {
+          this.selectedTenantId = this.tenants[0].id
+          localStorage.setItem('selectedTenantId', String(this.selectedTenantId))
+          this.$router.push({ name: 'home-dashboard' })
+          return
+        }
+        this.tenantSelectionDialog = true
+      } catch (error) {
+        console.error('Erro ao carregar tenants', error)
+        this.$q.notify({ type: 'negative', message: 'Erro ao carregar tenants. Tente novamente.' })
+      }
+    },
+    async confirmTenantSelection () {
+      if (!this.selectedTenantId) {
+        this.$q.notify({ type: 'negative', message: 'Selecione um tenant antes de prosseguir.' })
+        return
+      }
+      localStorage.setItem('selectedTenantId', String(this.selectedTenantId))
+      this.tenantSelectionDialog = false
+      this.$router.push({ name: 'home-dashboard' })
     },
     clear () {
       this.form.email = ''

@@ -2,10 +2,10 @@
 const express = require('express')
 const path = require('path')
 const app = express()
-app.use(express.static(path.join(__dirname, 'dist/pwa')))
+const distDir = path.join(__dirname, 'dist/pwa')
+
+app.use(express.static(distDir))
 app.get('/*', function (req, res) {
-  res.sendFile(path.join(__dirname, 'dist/pwa', 'index.html'))
+  res.sendFile(path.join(distDir, 'index.html'))
 })
-app.listen(4444)
-
-
+app.listen(4000)

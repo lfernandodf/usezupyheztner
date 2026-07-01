@@ -1,6 +1,8 @@
 import express from "express";
 import * as AdminController from "../controllers/AdminController";
+import * as AdminTenantController from "../controllers/AdminTenantController";
 import isAuthAdmin from "../middleware/isAuthAdmin";
+import isAuthSuperAdmin from "../middleware/isAuthSuperAdmin";
 
 const adminRoutes = express.Router();
 
@@ -11,7 +13,22 @@ adminRoutes.put(
   AdminController.updateUser
 );
 
-adminRoutes.get("/admin/tenants", isAuthAdmin, AdminController.indexTenants);
+adminRoutes.get("/admin/tenants", isAuthSuperAdmin, AdminController.indexTenants);
+adminRoutes.post(
+  "/admin/tenants",
+  isAuthSuperAdmin,
+  AdminTenantController.storeTenant
+);
+adminRoutes.put(
+  "/admin/tenants/:tenantId",
+  isAuthSuperAdmin,
+  AdminTenantController.updateTenant
+);
+adminRoutes.delete(
+  "/admin/tenants/:tenantId",
+  isAuthSuperAdmin,
+  AdminTenantController.deleteTenant
+);
 adminRoutes.get(
   "/admin/chatflow/:tenantId",
   isAuthAdmin,

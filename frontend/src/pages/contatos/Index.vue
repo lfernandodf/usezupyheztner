@@ -406,6 +406,18 @@ export default {
     }
   },
   methods: {
+    async onTenantChanged () {
+      this.contacts = []
+      this.filter = null
+      this.params = {
+        pageNumber: 1,
+        searchParam: null,
+        hasMore: true
+      }
+      this.pagination.lastIndex = 0
+      this.pagination.rowsNumber = 0
+      await this.listarContatos()
+    },
     abrirEnvioArquivo (event) {
       this.isImportCSV = true
       this.$refs.PickerFileMessage.pickFiles(event)
@@ -721,9 +733,13 @@ export default {
   mounted () {
     this.usuario = JSON.parse(localStorage.getItem('usuario'))
     this.userProfile = localStorage.getItem('profile')
+    this.$root.$on('tenant:changed', this.onTenantChanged)
     this.listarContatos()
     this.listarUsuarios()
     this.listarEtiquetas()
+  },
+  destroyed () {
+    this.$root.$off('tenant:changed', this.onTenantChanged)
   }
 }
 </script>

@@ -6,6 +6,7 @@ import ListChatFlowService from "../services/ChatFlowServices/ListChatFlowServic
 import AppError from "../errors/AppError";
 import UpdateChatFlowService from "../services/ChatFlowServices/UpdateChatFlowService";
 import DeleteChatFlowService from "../services/ChatFlowServices/DeleteChatFlowService";
+import ValidateChatFlowStructureService from "../services/ChatFlowServices/ValidateChatFlowStructureService";
 // import UpdateAutoReplyService from "../services/AutoReplyServices/UpdateAutoReplyService";
 // import DeleteAutoReplyService from "../services/AutoReplyServices/DeleteAutoReplyService";
 
@@ -64,8 +65,16 @@ interface ChatFlowData {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const validation = ValidateChatFlowStructureService(req.body);
+  if (!validation.valid) {
+    throw new AppError(
+      `ERR_CHAT_FLOW_INVALID: ${validation.errors.join(" | ")}`,
+      400
+    );
   }
 
   const newFlow: ChatFlowData = {
@@ -104,10 +113,18 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { tenantId } = req.user;
+
+  const validation = ValidateChatFlowStructureService(req.body);
+  if (!validation.valid) {
+    throw new AppError(
+      `ERR_CHAT_FLOW_INVALID: ${validation.errors.join(" | ")}`,
+      400
+    );
+  }
 
   const newFlow: ChatFlowData = {
     flow: { ...req.body },
@@ -138,6 +155,19 @@ export const update = async (
 
   return res.status(200).json(chatFlow);
 };
+
+export const validate = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const validation = ValidateChatFlowStructureService(req.body);
+  return res.status(200).json(validation);
+};
+
 export const remove = async (
   req: Request,
   res: Response
@@ -154,7 +184,7 @@ export const remove = async (
 //   req: Request,
 //   res: Response
 // ): Promise<Response> => {
-//   if (req.user.profile !== "admin") {
+//   if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
 //     throw new AppError("ERR_NO_PERMISSION", 403);
 //   }
 //   const { tenantId } = req.user;

@@ -13,7 +13,11 @@ interface TokenPayload {
   exp: number;
 }
 
-const isAuth = (req: Request, res: Response, next: NextFunction): void => {
+const isAuthSuperAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -25,27 +29,21 @@ const isAuth = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const decoded = verify(token, authConfig.secret);
     const { id, profile, tenantId } = decoded as TokenPayload;
-    const selectedTenantHeader = req.headers["x-selected-tenant"];
-    const selectedTenantRaw = Array.isArray(selectedTenantHeader)
-      ? selectedTenantHeader[0]
-      : selectedTenantHeader;
-    const selectedTenantParsed = Number(selectedTenantRaw);
-    const hasValidSelectedTenant =
-      Number.isFinite(selectedTenantParsed) && selectedTenantParsed > 0;
+
+    if (profile !== "superadmin") {
+      throw new AppError("Not superadmin permission", 403);
+    }
 
     req.user = {
       id,
       profile,
-      tenantId:
-        profile === "superadmin" && hasValidSelectedTenant
-          ? selectedTenantParsed
-          : tenantId
+      tenantId
     };
   } catch (err) {
-    throw new AppError("Invalid token.", 403);
+    throw new AppError("Invalid token or not Superuser", 403);
   }
 
   return next();
 };
 
-export default isAuth;
+export default isAuthSuperAdmin;

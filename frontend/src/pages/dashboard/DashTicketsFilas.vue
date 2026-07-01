@@ -23,13 +23,13 @@
           <DatePick dense
             class="row col"
             v-model="pesquisaTickets.dateEnd" />
-          <q-separator v-if="profile === 'admin'" />
-          <q-toggle v-if="profile === 'admin'"
+          <q-separator v-if="(profile === 'admin' || profile === 'superadmin')" />
+          <q-toggle v-if="(profile === 'admin' || profile === 'superadmin')"
             class="q-ml-lg"
             v-model="pesquisaTickets.showAll"
             label="(Admin) - Visualizar Todos" />
           <q-separator class="q-mb-md"
-            v-if="profile === 'admin'" />
+            v-if="(profile === 'admin' || profile === 'superadmin')" />
 
           <q-select v-if="!pesquisaTickets.showAll"
             square

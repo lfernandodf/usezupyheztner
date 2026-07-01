@@ -64,6 +64,45 @@
     </q-card>
     <q-card class="q-my-md q-pa-sm">
       <q-card-section class="q-pa-md">
+        <div class="row items-center justify-between q-mb-md">
+          <div>
+            <div class="text-h6">Dashboard</div>
+            <div class="text-subtitle2">Resumo dos indicadores</div>
+          </div>
+          <div class="col-auto">
+            <q-chip
+              text-color="white"
+              color="primary"
+              outline
+              dense
+              class="q-ml-sm"
+            >
+              {{ selectedTenantId ? tenantOptions.find(t => String(t.value) === String(selectedTenantId))?.label : 'Nenhum tenant selecionado' }}
+            </q-chip>
+          </div>
+        </div>
+        <div v-if="isSuperAdmin && !selectedTenantId" class="q-mb-md">
+          <q-banner class="bg-yellow-2 text-black">
+            Superadmin: selecione um tenant no seletor abaixo para ativar funcionalidades de admin.
+          </q-banner>
+        </div>
+        <div v-if="isSuperAdmin" class="col-auto q-mb-md">
+          <q-select
+            outlined
+            dense
+            hide-dropdown-icon
+            options-dense
+            :options="tenantOptions"
+            emit-value
+            map-options
+            option-value="value"
+            option-label="label"
+            v-model="selectedTenantId"
+            @input="handleChangeTenant"
+            style="min-width: 260px"
+            label="Selecionar Tenant"
+          />
+        </div>
         <div class="row q-gutter-md justify-center">
           <div class="col-xs-12 col-sm-shrink">
             <q-card
@@ -231,6 +270,7 @@
 <script>
 import { groupBy } from 'lodash'
 import { ListarFilas } from 'src/service/filas'
+import { ListarTenants } from 'src/service/tenants'
 import {
   GetDashTicketsAndTimes,
   GetDashTicketsChannels,
@@ -262,6 +302,8 @@ export default {
         lastIndex: 0
       },
       filas: [],
+      tenants: [],
+      selectedTenantId: null,
       ticketsChannels: [],
       ticketsChannelsOptions: {
         // colors: ['#008FFB', '#00E396', '#FEB019'],
@@ -663,6 +705,15 @@ export default {
     }
   },
   computed: {
+    tenantOptions () {
+      return this.tenants.map(tenant => ({
+        label: tenant.name,
+        value: String(tenant.id)
+      }))
+    },
+    isSuperAdmin () {
+      return localStorage.getItem('profile') === 'superadmin'
+    },
     cTmaFormat () {
       const tma = this.ticketsAndTimes.tma || {}
       return formatDuration(tma) || ''
@@ -673,6 +724,18 @@ export default {
     }
   },
   methods: {
+    updateChartRef (refName, options, series) {
+      this.$nextTick(() => {
+        const chart = this.$refs[refName]
+        if (!chart || typeof chart.updateOptions !== 'function') {
+          return
+        }
+        chart.updateOptions(options)
+        if (typeof chart.updateSeries === 'function' && Array.isArray(series)) {
+          chart.updateSeries(series, true)
+        }
+      })
+    },
     async listarFilas () {
       const { data } = await ListarFilas()
       this.filas = data
@@ -705,8 +768,7 @@ export default {
         })
         this.ticketsQueueOptions.series = series
         this.ticketsQueueOptions.labels = labels
-        this.$refs.ChartTicketsQueue.updateOptions(this.ticketsQueueOptions)
-        this.$refs.ChartTicketsQueue.updateSeries(series, true)
+        this.updateChartRef('ChartTicketsQueue', this.ticketsQueueOptions, series)
       })
         .catch(err => {
           console.error(err)
@@ -723,8 +785,7 @@ export default {
         })
         this.ticketsChannelsOptions.series = series
         this.ticketsChannelsOptions.labels = labels
-        this.$refs.ChartTicketsChannels.updateOptions(this.ticketsChannelsOptions)
-        this.$refs.ChartTicketsChannels.updateSeries(series, true)
+        this.updateChartRef('ChartTicketsChannels', this.ticketsChannelsOptions, series)
       })
         .catch(err => {
           console.error(err)
@@ -754,8 +815,7 @@ export default {
             })
           }
           this.ticketsEvolutionChannelsOptions.series = series
-          this.$refs.ChartTicketsEvolutionChannels.updateOptions(this.ticketsEvolutionChannelsOptions)
-          this.$refs.ChartTicketsEvolutionChannels.updateSeries(series, true)
+          this.updateChartRef('ChartTicketsEvolutionChannels', this.ticketsEvolutionChannelsOptions, series)
         })
         .catch(error => {
           console.error(error)
@@ -782,14 +842,13 @@ export default {
           series[1].data = series[0].data
           this.ticketsEvolutionByPeriodOptions.labels = labels
           this.ticketsEvolutionByPeriodOptions.series = series
-          this.$refs.ChartTicketsEvolutionByPeriod.updateOptions(this.ticketsEvolutionByPeriodOptions)
-          this.$refs.ChartTicketsEvolutionByPeriod.updateSeries(series, true)
+          this.updateChartRef('ChartTicketsEvolutionByPeriod', this.ticketsEvolutionByPeriodOptions, series)
         })
         .catch(error => {
           console.error(error)
         })
     },
-    getDashTicketsPerUsersDetail () {
+    async getDashTicketsPerUsersDetail () {
       GetDashTicketsPerUsersDetail(this.params)
         .then(res => {
           this.ticketsPerUsersDetail = res.data
@@ -797,6 +856,39 @@ export default {
         .catch(error => {
           console.error(error)
         })
+    },
+    async loadTenantSelection () {
+      try {
+        const { data } = await ListarTenants()
+        this.tenants = data || []
+        const storedTenantId = localStorage.getItem('selectedTenantId')
+        if (storedTenantId && this.tenants.some(t => String(t.id) === storedTenantId)) {
+          this.selectedTenantId = storedTenantId
+        } else if (this.tenants.length > 0) {
+          this.selectedTenantId = String(this.tenants[0].id)
+          localStorage.setItem('selectedTenantId', this.selectedTenantId)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar tenants', error)
+      }
+    },
+    handleChangeTenant (value) {
+      const tenantId = String(value)
+      this.selectedTenantId = tenantId
+      localStorage.setItem('selectedTenantId', tenantId)
+      const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
+      if (usuario && Object.keys(usuario).length > 0) {
+        localStorage.setItem('usuario', JSON.stringify({
+          ...usuario,
+          tenantId
+        }))
+      }
+      this.$q.notify({
+        type: 'positive',
+        message: 'Tenant selecionado: ' + (this.tenants.find(t => String(t.id) === tenantId)?.name || ''),
+        position: 'top'
+      })
+      this.getDashData()
     },
     getDashData () {
       this.setConfigWidth()
@@ -827,8 +919,11 @@ export default {
     this.ticketsEvolutionChannelsOptions = { ...this.ticketsEvolutionChannelsOptions, theme }
     this.ticketsEvolutionByPeriodOptions = { ...this.ticketsEvolutionByPeriodOptions, theme }
   },
-  mounted () {
-    this.listarFilas()
+  async mounted () {
+    await this.listarFilas()
+    if (this.isSuperAdmin) {
+      await this.loadTenantSelection()
+    }
     this.getDashData()
   }
 }

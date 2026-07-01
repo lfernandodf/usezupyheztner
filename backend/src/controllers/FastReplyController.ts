@@ -16,7 +16,7 @@ interface FastReplyData {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -56,7 +56,7 @@ export const update = async (
 ): Promise<Response> => {
   const { tenantId } = req.user;
 
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const fastReplyData: FastReplyData = {
@@ -91,7 +91,7 @@ export const remove = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { fastReplyId } = req.params;

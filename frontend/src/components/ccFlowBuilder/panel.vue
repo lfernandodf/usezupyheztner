@@ -13,6 +13,18 @@
       <q-btn
         round
         flat
+        icon="mdi-check-decagram"
+        @click="validarFluxo"
+      ></q-btn>
+      <q-separator
+        inset
+        spaced
+        vertical
+      />
+
+      <q-btn
+        round
+        flat
         icon="mdi-delete"
         @click="deleteElement"
         :disabled="!this.activeElement.type || ['start', 'exception'].includes(this.activeElement.type)"
@@ -69,6 +81,7 @@
           @addNode="addNode"
           @deleteLine="deleteLine"
           @addNewLineCondition="addNewLineCondition"
+          @validateFlow="validarFluxo"
           @saveFlow="saveFlow"
         >
         </flow-node-form>
@@ -101,7 +114,7 @@ import { merge, cloneDeep } from 'lodash'
 import './index.css'
 import { uid } from 'quasar'
 
-import { UpdateChatFlow } from '../../service/chatFlow'
+import { UpdateChatFlow, ValidarChatFlow } from '../../service/chatFlow'
 
 export default {
   data () {
@@ -177,6 +190,47 @@ export default {
     }
   },
   methods: {
+    async validarFluxo (showSuccess = true) {
+      try {
+        const payload = {
+          ...this.cDataFlow.flow,
+          flow: this.data
+        }
+
+        const { data } = await ValidarChatFlow(payload)
+
+        if (!data.valid) {
+          const message = `<ul style="margin: 0; padding-left: 18px;">${data.errors.map(error => `<li>${error}</li>`).join('')}</ul>`
+          this.$q.dialog({
+            title: 'Fluxo invalido',
+            message,
+            html: true
+          })
+          return false
+        }
+
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          this.$q.dialog({
+            title: 'Fluxo valido com alertas',
+            message: `<ul style="margin: 0; padding-left: 18px;">${data.warnings.map(warning => `<li>${warning}</li>`).join('')}</ul>`,
+            html: true
+          })
+        } else if (showSuccess) {
+          this.$notificarSucesso('Fluxo validado com sucesso!')
+        }
+
+        return true
+      } catch (error) {
+        const detail = (error && error.response && error.response.data && error.response.data.error)
+          ? error.response.data.error
+          : 'Nao foi possivel validar o fluxo agora. Verifique se o backend foi reiniciado.'
+        this.$q.dialog({
+          title: 'Falha ao validar fluxo',
+          message: detail
+        })
+        return false
+      }
+    },
     getUUID () {
       return uid()
     },
@@ -199,10 +253,17 @@ export default {
       }
       this.clickNode(from)
     },
-    saveFlow () {
+    async saveFlow () {
+      const isValid = await this.validarFluxo(false)
+      if (!isValid) return
+
+      const flowName = this.cDataFlow?.flow?.name || this.data?.name || 'Fluxo'
       const data = {
         ...this.cDataFlow.flow,
-        flow: this.data
+        flow: {
+          ...this.data,
+          name: flowName
+        }
       }
       UpdateChatFlow(data)
         .then(res => {
@@ -216,6 +277,8 @@ export default {
     jsPlumpConsist (evt) {
       const from = evt.sourceId
       const to = evt.targetId
+      const initialStepLine = (this.data.lineList || []).find(line => line.from === 'start')
+      const initialStepId = initialStepLine ? initialStepLine.to : null
       if (from === to) {
         this.$q.notify({
           type: 'negative',
@@ -237,7 +300,7 @@ export default {
           progress: true,
           position: 'top',
           timeout: 2500,
-          message: 'Não é possível realizar loop entre os elementos.',
+          message: 'Essa conexão já existe entre as etapas.',
           actions: [{
             icon: 'close',
             round: true,
@@ -246,13 +309,13 @@ export default {
         })
         return false
       }
-      if (this.hashOppositeLine(from, to)) {
+      if (this.hashOppositeLine(from, to) && to !== initialStepId) {
         this.$q.notify({
           type: 'negative',
           progress: true,
           position: 'top',
-          timeout: 2500,
-          message: 'Não é possível realizar loop entre os elementos.',
+          timeout: 3000,
+          message: 'Retorno permitido somente para a etapa inicial do fluxo.',
           actions: [{
             icon: 'close',
             round: true,
@@ -610,7 +673,9 @@ export default {
     // eslint-disable-next-line no-undef
     this.jsPlumb = jsPlumb.getInstance()
     this.$nextTick(() => {
-      this.dataReload(this.cDataFlow.flow.flow)
+      const flowData = cloneDeep(this.cDataFlow?.flow?.flow || {})
+      flowData.name = this.cDataFlow?.flow?.name || flowData.name || 'Fluxo'
+      this.dataReload(flowData)
     })
   }
 }

@@ -61,6 +61,13 @@
               <q-item
                 clickable
                 v-close-popup
+                @click="abrirModalTrocarSenha"
+              >
+                <q-item-section>Trocar senha</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                v-close-popup
                 @click="efetuarLogout"
               >
                 <q-item-section>Sair</q-item-section>
@@ -106,7 +113,7 @@
                 <div class="q-ma-sm">
                   <div class="text-h6 q-mb-md">Filtros Avançados</div>
                   <q-toggle
-                    v-if="profile === 'admin'"
+                    v-if="(profile === 'admin' || profile === 'superadmin')"
                     class="q-ml-lg"
                     v-model="pesquisaTickets.showAll"
                     label="(Admin) - Visualizar Todos"
@@ -266,19 +273,25 @@
               <q-tabs v-model="selectedTab" class="tab-scroll">
                 <q-tab name="open">
                   Abertos
-                  <q-badge v-if="openTickets.length > 0" color="red" textColor="white">{{ openTickets.length }}</q-badge>
+                  <q-badge v-if="cTabTotals.open === 0" color="grey" textColor="white">{{ cTabTotals.open }}</q-badge>
+                  <q-badge v-else color="red" textColor="white">{{ cTabTotals.open }}</q-badge>
                 </q-tab>
                 <q-tab name="pending">
                   Pendentes
-                  <q-badge v-if="pendingTickets.length > 0" color="red" textColor="white">{{ pendingTickets.length }}</q-badge>
+                  <q-badge v-if="cTabTotals.pending === 0" color="grey" textColor="white">{{ cTabTotals.pending }}</q-badge>
+                  <q-badge v-else color="red" textColor="white">{{ cTabTotals.pending }}</q-badge>
+
                 </q-tab>
                 <q-tab name="closed">
                   Fechados
-                  <q-badge v-if="closedTickets.length > 0" color="red" textColor="white">{{ closedTickets.length }}</q-badge>
+                  <q-badge v-if="cTabTotals.closed === 0" color="grey" textColor="white">{{ cTabTotals.closed }}</q-badge>
+                  <q-badge v-else color="red" textColor="white">{{ cTabTotals.closed }}</q-badge>
+
                 </q-tab>
                 <q-tab name="group">
                   Grupos
-                  <q-badge v-if="groupTickets.length > 0" color="red" textColor="white">{{ groupTickets.length }}</q-badge>
+                  <q-badge v-if="cTabTotals.group === 0" color="grey" textColor="white">{{ cTabTotals.group }}</q-badge>
+                  <q-badge v-else color="red" textColor="white">{{ cTabTotals.group }}</q-badge>
                 </q-tab>
               </q-tabs>
             </div>
@@ -717,6 +730,7 @@
 
       <ModalUsuario
         :isProfile="true"
+        :passwordOnly="passwordOnlyModal"
         :modalUsuario.sync="modalUsuario"
         :usuarioEdicao.sync="usuario"
       />
@@ -796,10 +810,6 @@ import mixinSockets from './mixinSockets'
 import socketInitial from 'src/layouts/socketInitial'
 import ModalNovoTicket from './ModalNovoTicket'
 import { ListarFilas } from 'src/service/filas'
-const UserQueues = JSON.parse(localStorage.getItem('queues'))
-const profile = localStorage.getItem('profile')
-const username = localStorage.getItem('username')
-const usuario = JSON.parse(localStorage.getItem('usuario'))
 import StatusWhatsapp from 'src/components/StatusWhatsapp'
 import alertSound from 'src/assets/sound.mp3'
 import { ListarWhatsapps } from 'src/service/sessoesWhatsapp'
@@ -827,16 +837,23 @@ export default {
     ItemStatusChannel
   },
   data () {
+    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
+    const username = localStorage.getItem('username') || ''
+    const profile = localStorage.getItem('profile') || ''
+    const userQueues = JSON.parse(localStorage.getItem('queues') || '[]')
+
     return {
       messagesLog,
       configuracoes: [],
       debounce,
       alertSound,
       usuario,
+      userQueues,
       usuarios: [],
       selectedTab: 'open',
       username,
       modalUsuario: false,
+      passwordOnlyModal: false,
       toolbarSearch: true,
       drawerTickets: true,
       drawerContact: true,
@@ -849,6 +866,12 @@ export default {
       showDialog: false,
       atendimentos: [],
       countTickets: 0,
+      tabTotals: {
+        open: 0,
+        pending: 0,
+        closed: 0,
+        group: 0
+      },
       pesquisaTickets: {
         searchParam: '',
         pageNumber: 1,
@@ -897,7 +920,7 @@ export default {
       // } catch (error) {
       //   return []
       // }
-      return UserQueues
+      return this.userQueues
     },
     style () {
       return {
@@ -917,6 +940,28 @@ export default {
       const { queuesIds, showAll, withUnreadMessages, isNotAssignedUser } = this.pesquisaTickets
       return !!(queuesIds?.length || showAll || withUnreadMessages || isNotAssignedUser)
     },
+    cTabTotals () {
+      const localTotals = {
+        open: this.tickets.filter(ticket => ticket.status === 'open' && !ticket.isGroup).length,
+        pending: this.tickets.filter(ticket => ticket.status === 'pending' && !ticket.isGroup).length,
+        closed: this.tickets.filter(ticket => ticket.status === 'closed' && !ticket.isGroup).length,
+        group: this.tickets.filter(ticket => ticket.isGroup === true || ticket.isGroup === 'true').length
+      }
+
+      const apiTotals = {
+        open: Number(this.tabTotals?.open || 0),
+        pending: Number(this.tabTotals?.pending || 0),
+        closed: Number(this.tabTotals?.closed || 0),
+        group: Number(this.tabTotals?.group || 0)
+      }
+
+      return {
+        open: Math.max(apiTotals.open, localTotals.open),
+        pending: Math.max(apiTotals.pending, localTotals.pending),
+        closed: Math.max(apiTotals.closed, localTotals.closed),
+        group: Math.max(apiTotals.group, localTotals.group)
+      }
+    },
     cIsExtraInfo () {
       return this.ticketFocado?.contact?.extraInfo?.length > 0
     },
@@ -931,10 +976,16 @@ export default {
       return this.tickets.filter(ticket => ticket.status === 'closed' && !ticket.isGroup)
     },
     groupTickets () {
-      return this.tickets.filter(ticket => ticket.isGroup === 'true')
+      return this.tickets.filter(ticket => ticket.isGroup === true || ticket.isGroup === 'true')
     }
   },
   methods: {
+    syncSessionContext () {
+      this.usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
+      this.username = localStorage.getItem('username') || ''
+      this.profile = localStorage.getItem('profile') || ''
+      this.userQueues = JSON.parse(localStorage.getItem('queues') || '[]')
+    },
     handlerNotifications (data) {
       const options = {
         body: `${data.body} - ${format(new Date(), 'HH:mm')}`,
@@ -988,6 +1039,12 @@ export default {
       try {
         const { data } = await ConsultarTickets(params)
         this.countTickets = data.count // count total de tickets no status
+        this.tabTotals = data.tabTotals || {
+          open: 0,
+          pending: 0,
+          closed: 0,
+          group: 0
+        }
         this.$store.commit('LOAD_TICKETS', data.tickets)
         this.$store.commit('SET_HAS_MORE', data.hasMore)
       } catch (err) {
@@ -1040,12 +1097,17 @@ export default {
       // }
       // const { data } = await DadosUsuario(userId)
       // this.usuario = data
+      this.passwordOnlyModal = false
+      this.modalUsuario = true
+    },
+    async abrirModalTrocarSenha () {
+      this.passwordOnlyModal = true
       this.modalUsuario = true
     },
     async efetuarLogout () {
-      console.log('logout - index atendimento')
-      try {
-        await RealizarLogout(usuario)
+      const storedUser = JSON.parse(localStorage.getItem('usuario')) || {}
+      const userId = storedUser.userId || localStorage.getItem('userId')
+      if (!userId) {
         localStorage.removeItem('token')
         localStorage.removeItem('username')
         localStorage.removeItem('profile')
@@ -1053,8 +1115,23 @@ export default {
         localStorage.removeItem('queues')
         localStorage.removeItem('usuario')
         localStorage.removeItem('filtrosAtendimento')
+        localStorage.removeItem('selectedTenantId')
+        this.$router.replace({ name: 'login' })
+        return
+      }
 
-        this.$router.go({ name: 'login', replace: true })
+      try {
+        await RealizarLogout({ userId })
+        localStorage.removeItem('token')
+        localStorage.removeItem('username')
+        localStorage.removeItem('profile')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('queues')
+        localStorage.removeItem('usuario')
+        localStorage.removeItem('filtrosAtendimento')
+        localStorage.removeItem('selectedTenantId')
+
+        this.$router.replace({ name: 'login' })
       } catch (error) {
         this.$notificarErro(
           'Não foi possível realizar logout',
@@ -1120,6 +1197,33 @@ export default {
         this.$notificarErro('Problema ao carregar usuários', error)
       }
     },
+    async onTenantChanged () {
+      this.pesquisaTickets = {
+        searchParam: '',
+        pageNumber: 1,
+        status: ['open', 'pending', 'closed'],
+        showAll: false,
+        count: null,
+        queuesIds: [],
+        withUnreadMessages: false,
+        isNotAssignedUser: false,
+        includeNotQueueDefined: true
+      }
+      this.$store.commit('RESET_TICKETS')
+      this.$store.commit('TICKET_FOCADO', {})
+      await this.consultarTickets()
+      if (this.$route.name !== 'chat-empty') {
+        this.$router.replace({ name: 'chat-empty' }).catch(() => {})
+      }
+    },
+    async onTicketStatusUpdated () {
+      this.$store.commit('RESET_TICKETS')
+      this.pesquisaTickets = {
+        ...this.pesquisaTickets,
+        pageNumber: 1
+      }
+      await this.consultarTickets(this.pesquisaTickets)
+    },
     setValueMenu () {
       this.drawerTickets = !this.drawerTickets
     },
@@ -1133,6 +1237,7 @@ export default {
     }
   },
   beforeMount () {
+    this.syncSessionContext()
     this.listarFilas()
     this.listarEtiquetas()
     this.listarConfiguracoes()
@@ -1142,8 +1247,11 @@ export default {
     }
   },
   async mounted () {
+    this.syncSessionContext()
     this.$root.$on('infor-cabecalo-chat:acao-menu', this.setValueMenu)
     this.$root.$on('update-ticket:info-contato', this.setValueMenuContact)
+    this.$root.$on('tenant:changed', this.onTenantChanged)
+    this.$root.$on('ticket:status-updated', this.onTicketStatusUpdated)
     this.socketTicketList()
     this.pesquisaTickets = JSON.parse(localStorage.getItem('filtrosAtendimento'))
     this.$root.$on('handlerNotifications', this.handlerNotifications)
@@ -1175,13 +1283,17 @@ export default {
       }
     } else {
       console.log('chat-empty')
-      this.$router.push({ name: 'chat-empty' })
+      if (this.$route.name !== 'chat-empty') {
+        this.$router.replace({ name: 'chat-empty' }).catch(() => {})
+      }
     }
   },
   destroyed () {
     this.$root.$off('handlerNotifications', this.handlerNotifications)
     this.$root.$off('infor-cabecalo-chat:acao-menu', this.setValueMenu)
-    this.$root.$on('update-ticket:info-contato', this.setValueMenuContact)
+    this.$root.$off('update-ticket:info-contato', this.setValueMenuContact)
+    this.$root.$off('tenant:changed', this.onTenantChanged)
+    this.$root.$off('ticket:status-updated', this.onTicketStatusUpdated)
     // this.socketDisconnect()
     this.$store.commit('TICKET_FOCADO', {})
   }

@@ -27,7 +27,7 @@ interface RenewData {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId, id } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -55,7 +55,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const apis = await ListApiConfigService({ tenantId });
@@ -66,7 +66,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { tenantId, id } = req.user;
@@ -103,7 +103,7 @@ export const remove = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { tenantId } = req.user;
@@ -117,7 +117,7 @@ export const renewTokenApi = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

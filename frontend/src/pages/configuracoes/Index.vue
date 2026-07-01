@@ -171,6 +171,31 @@
           />
         </div>
       </div>
+
+      <q-item
+        tag="label"
+        v-ripple
+      >
+        <q-item-section>
+          <q-item-label>Tempo de sessão por inatividade (minutos)</q-item-label>
+          <q-item-label caption>Após esse período sem ação, o sistema realiza logout automático.</q-item-label>
+        </q-item-section>
+        <q-item-section avatar>
+          <q-input
+            style="width: 180px"
+            outlined
+            dense
+            rounded
+            type="number"
+            min="1"
+            max="240"
+            v-model.number="sessionIdleTimeoutMinutes"
+            label="Minutos"
+            debounce="600"
+            @input="atualizarConfiguracao('sessionIdleTimeoutMinutes')"
+          />
+        </q-item-section>
+      </q-item>
     </q-list>
 
   </div>
@@ -191,7 +216,8 @@ export default {
       botTicketActive: null,
       ignoreGroupMsg: null,
       rejectCalls: null,
-      callRejectMessage: ''
+      callRejectMessage: '',
+      sessionIdleTimeoutMinutes: 5
     }
   },
   methods: {
@@ -203,6 +229,9 @@ export default {
         if (el.key === 'botTicketActive' && el.value) {
           value = +el.value
         }
+        if (el.key === 'sessionIdleTimeoutMinutes' && el.value) {
+          value = +el.value
+        }
         this.$data[el.key] = value
       })
     },
@@ -211,12 +240,29 @@ export default {
       this.listaChatFlow = data.chatFlow
     },
     async atualizarConfiguracao (key) {
+      const currentConfig = this.configuracoes.find(c => c.key === key)
+      const previousValue = currentConfig && currentConfig.value !== undefined
+        ? currentConfig.value
+        : null
+
+      if (key === 'sessionIdleTimeoutMinutes') {
+        const n = Number(this.$data[key])
+        if (!Number.isFinite(n) || n < 1) this.$data[key] = 1
+        if (n > 240) this.$data[key] = 240
+      }
+
       const params = {
         key,
-        value: this.$data[key]
+        value: String(this.$data[key])
       }
       try {
-        await AlterarConfiguracao(params)
+        const { data } = await AlterarConfiguracao(params)
+        const idx = this.configuracoes.findIndex(c => c.key === key)
+        if (idx >= 0) {
+          this.configuracoes[idx].value = data.value
+        } else {
+          this.configuracoes.push(data)
+        }
         this.$q.notify({
           type: 'positive',
           message: 'Configuração alterada!',
@@ -229,7 +275,9 @@ export default {
         })
       } catch (error) {
         console.error('error - AlterarConfiguracao', error)
-        this.$data[key] = this.$data[key] === 'enabled' ? 'disabled' : 'enabled'
+        if (previousValue !== null) {
+          this.$data[key] = key === 'sessionIdleTimeoutMinutes' ? +previousValue : previousValue
+        }
         this.$notificarErro('Ocorreu um erro!', error)
       }
     }

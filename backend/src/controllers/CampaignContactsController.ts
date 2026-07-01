@@ -9,7 +9,7 @@ import DeleteAllCampaignContactsService from "../services/CampaignContactsServic
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   // const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -41,7 +41,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 // ): Promise<Response> => {
 //   const { tenantId } = req.user;
 
-//   if (req.user.profile !== "admin") {
+//   if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
 //     throw new AppError("ERR_NO_PERMISSION", 403);
 //   }
 //   const tagData: TagData = { ...req.body, userId: req.user.id, tenantId };
@@ -73,7 +73,7 @@ export const remove = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { campaignId, contactId } = req.params;
@@ -87,7 +87,7 @@ export const removeAll = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { campaignId } = req.params;

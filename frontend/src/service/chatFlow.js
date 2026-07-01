@@ -24,6 +24,14 @@ export function UpdateChatFlow (data) {
   })
 }
 
+export function ValidarChatFlow (data) {
+  return request({
+    url: '/chat-flow/validate',
+    method: 'post',
+    data
+  })
+}
+
 export function DeletarChatFlow (data) {
   return request({
     url: `/chat-flow/${data.id}`,

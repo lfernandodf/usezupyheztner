@@ -25,6 +25,7 @@ const TicketsQueuesService = async ({
   tenantId,
   showAll
 }: Request): Promise<Ticket[]> => {
+  const isShowAll = showAll === true || showAll === "true";
   let whereCondition: Filterable["where"] = {
     // [Op.or]: [{ userId }, { status: "pending" }]
   };
@@ -47,8 +48,7 @@ const TicketsQueuesService = async ({
   ];
 
   const isExistsQueues = await Queue.count({ where: { tenantId } });
-  // eslint-disable-next-line eqeqeq
-  if (isExistsQueues) {
+  if (isExistsQueues && !isShowAll) {
     const queues = await UsersQueues.findAll({
       where: {
         userId
@@ -56,15 +56,11 @@ const TicketsQueuesService = async ({
     });
     let queuesIdsUser = queues.map(q => q.queueId);
 
-    if (queuesIds) {
-      const newArray: number[] = [];
-      queuesIds.forEach(i => {
-        const idx = queuesIdsUser.indexOf(+i);
-        if (idx) {
-          newArray.push(+i);
-        }
-      });
-      queuesIdsUser = newArray;
+    if (queuesIds?.length) {
+      const selectedQueues = queuesIds.map(i => +i).filter(i => !isNaN(i));
+      queuesIdsUser = queuesIdsUser.filter(queueId =>
+        selectedQueues.includes(queueId)
+      );
     }
 
     whereCondition = {
@@ -75,8 +71,7 @@ const TicketsQueuesService = async ({
     };
   }
 
-  // eslint-disable-next-line eqeqeq
-  if (showAll == "true") {
+  if (isShowAll) {
     whereCondition = {};
   }
 

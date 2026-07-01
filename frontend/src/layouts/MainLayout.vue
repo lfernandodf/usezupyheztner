@@ -27,7 +27,7 @@
           v-if="$q.screen.gt.xs"
         >
           <q-img
-            src="/izing-logo_5_transparent.png"
+            src="/logousezupy_mini_transparent.png?v=2"
             spinner-color="primary"
             style="height: 50px; width: 140px"
           />
@@ -36,6 +36,34 @@
         <q-space />
 
         <div class="q-gutter-sm row items-center no-wrap">
+          <q-select
+            v-if="userProfile === 'superadmin'"
+            outlined
+            dense
+            hide-dropdown-icon
+            options-dense
+            :options="tenantOptions"
+            emit-value
+            map-options
+            option-value="value"
+            option-label="label"
+            v-model="selectedTenantId"
+            @input="handleChangeTenant"
+            class="q-mr-md"
+            style="min-width: 220px"
+            label="Tenant selecionado"
+          />
+          <div v-if="userProfile === 'superadmin'" class="row items-center q-mr-md">
+            <q-chip
+              text-color="white"
+              color="primary"
+              outline
+              dense
+              class="q-ml-sm"
+            >
+              {{ selectedTenantName || 'Nenhum tenant selecionado' }}
+            </q-chip>
+          </div>
           <q-btn
             round
             dense
@@ -109,6 +137,18 @@
             </q-menu>
             <q-tooltip>Notificações</q-tooltip>
           </q-btn>
+          <q-chip
+            v-if="showSessionCounter"
+            dense
+            square
+            :color="sessionCounterColor"
+            :text-color="sessionCounterTextColor"
+            :class="['q-ml-xs', { 'session-counter-blink': isSessionCounterCritical }]"
+          >
+            <q-icon :name="sessionCounterIcon" size="16px" class="q-mr-xs" />
+            {{ sessionCountdownText }}
+            <q-tooltip>Sessão expira por inatividade em {{ sessionCountdownText }}</q-tooltip>
+          </q-chip>
           <q-avatar
             :color="usuario.status === 'offline' ? 'negative' : 'positive'"
             text-color="white"
@@ -143,6 +183,13 @@
                   @click="abrirModalUsuario"
                 >
                   <q-item-section>Perfil</q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  @click="abrirModalTrocarSenha"
+                >
+                  <q-item-section>Trocar senha</q-item-section>
                 </q-item>
                 <q-item
                   clickable
@@ -187,12 +234,12 @@
             :key="item.title"
             v-bind="item"
           />
-          <div v-if="userProfile === 'admin'">
+          <div v-if="userProfile === 'admin' || userProfile === 'superadmin'">
             <q-separator spaced />
             <div class="q-mb-lg"></div>
             <template v-for="item in menuDataAdmin">
               <EssentialLink
-                v-if="exibirMenuBeta(item)"
+                v-if="exibirMenuBeta(item) && (!item.onlySuperadmin || userProfile === 'superadmin')"
                 :key="item.title"
                 v-bind="item"
               />
@@ -227,7 +274,7 @@
 
     <q-page-container>
       <q-page class="q-pa-xs">
-        <router-view />
+        <router-view :key="tenantRouteViewKey" />
       </q-page>
     </q-page-container>
     <audio ref="audioNotification">
@@ -238,6 +285,7 @@
     </audio>
     <ModalUsuario
       :isProfile="true"
+      :passwordOnly="passwordOnlyModal"
       :modalUsuario.sync="modalUsuario"
       :usuarioEdicao.sync="usuario"
     />
@@ -259,6 +307,7 @@ import { RealizarLogout } from 'src/service/login'
 import cStatusUsuario from '../components/cStatusUsuario.vue'
 import { socketIO } from 'src/utils/socket'
 import { ConsultarTickets } from 'src/service/tickets'
+import { ListarTenants } from 'src/service/tenants'
 
 const socket = socketIO()
 
@@ -316,6 +365,13 @@ const objMenuAdmin = [
     routeName: 'filas'
   },
   {
+    title: 'Tenants',
+    caption: 'Gestão de tenants',
+    icon: 'mdi-domain',
+    routeName: 'tenants',
+    onlySuperadmin: true
+  },
+  {
     title: 'Mensagens Rápidas',
     caption: 'Mensagens pré-definidas',
     icon: 'mdi-reply-all-outline',
@@ -370,17 +426,41 @@ export default {
       miniState: true,
       userProfile: 'user',
       modalUsuario: false,
+      passwordOnlyModal: false,
       usuario: {},
       alertSound,
       leftDrawerOpen: false,
       menuData: objMenu,
       menuDataAdmin: objMenuAdmin,
+      tenants: [],
+      selectedTenantId: null,
+      tenantViewVersion: 0,
       countTickets: 0,
-      ticketsList: []
+      ticketsList: [],
+      sessionCountdownText: '00:00',
+      sessionSecondsLeft: 0,
+      sessionCountdownInterval: null
     }
   },
   computed: {
     ...mapGetters(['notifications', 'notifications_p', 'whatsapps']),
+    tenantOptions () {
+      return this.tenants.map(tenant => ({
+        label: tenant.name,
+        value: String(tenant.id)
+      }))
+    },
+    selectedTenantName () {
+      const tenantId = String(this.selectedTenantId)
+      const tenant = this.tenants.find(t => String(t.id) === tenantId)
+      return tenant ? tenant.name : null
+    },
+    tenantRouteViewKey () {
+      const localTenant = localStorage.getItem('selectedTenantId')
+      const userTenant = this.usuario?.tenantId
+      const activeTenant = String(this.selectedTenantId || localTenant || userTenant || '')
+      return `${this.tenantViewVersion}::${activeTenant}`
+    },
     cProblemaConexao () {
       const idx = this.whatsapps.findIndex(w =>
         ['PAIRING', 'TIMEOUT', 'DISCONNECTED'].includes(w.status)
@@ -410,9 +490,65 @@ export default {
         })
       }
       return objMenu
+    },
+    showSessionCounter () {
+      return !!localStorage.getItem('token') && this.sessionSecondsLeft > 0
+    },
+    sessionCounterColor () {
+      if (this.sessionSecondsLeft <= 30) return 'negative'
+      if (this.sessionSecondsLeft <= 120) return 'warning'
+      return 'positive'
+    },
+    sessionCounterTextColor () {
+      if (this.sessionSecondsLeft <= 30) return 'white'
+      if (this.sessionSecondsLeft <= 120) return 'black'
+      return 'white'
+    },
+    sessionCounterIcon () {
+      if (this.sessionSecondsLeft <= 30) return 'priority_high'
+      if (this.sessionSecondsLeft <= 120) return 'warning'
+      return 'schedule'
+    },
+    isSessionCounterCritical () {
+      return this.sessionSecondsLeft > 0 && this.sessionSecondsLeft <= 30
     }
   },
   methods: {
+    formatCountdown (seconds) {
+      const safeSeconds = Math.max(0, seconds)
+      const minutes = Math.floor(safeSeconds / 60)
+      const remainSeconds = safeSeconds % 60
+      return `${String(minutes).padStart(2, '0')}:${String(remainSeconds).padStart(2, '0')}`
+    },
+    updateSessionCountdown () {
+      const deadlineRaw = localStorage.getItem('sessionIdleDeadlineAt')
+      const deadline = Number(deadlineRaw)
+      if (!deadlineRaw || !Number.isFinite(deadline)) {
+        this.sessionSecondsLeft = 0
+        this.sessionCountdownText = '00:00'
+        return
+      }
+
+      const secondsLeft = Math.ceil((deadline - Date.now()) / 1000)
+      this.sessionSecondsLeft = Math.max(0, secondsLeft)
+      this.sessionCountdownText = this.formatCountdown(secondsLeft)
+    },
+    startSessionCountdown () {
+      this.stopSessionCountdown()
+      this.updateSessionCountdown()
+      this.sessionCountdownInterval = setInterval(() => {
+        this.updateSessionCountdown()
+      }, 1000)
+    },
+    stopSessionCountdown () {
+      if (this.sessionCountdownInterval) {
+        clearInterval(this.sessionCountdownInterval)
+        this.sessionCountdownInterval = null
+      }
+    },
+    onSessionIdleUpdated () {
+      this.updateSessionCountdown()
+    },
     exibirMenuBeta (itemMenu) {
       if (!itemMenu?.isBeta) return true
       for (const domain of this.domainExperimentalsMenus) {
@@ -451,6 +587,11 @@ export default {
       })
     },
     async abrirModalUsuario () {
+      this.passwordOnlyModal = false
+      this.modalUsuario = true
+    },
+    async abrirModalTrocarSenha () {
+      this.passwordOnlyModal = true
       this.modalUsuario = true
     },
     async efetuarLogout () {
@@ -463,22 +604,67 @@ export default {
         localStorage.removeItem('queues')
         localStorage.removeItem('usuario')
         localStorage.removeItem('filtrosAtendimento')
+        localStorage.removeItem('selectedTenantId')
 
-        this.$router.go({ name: 'login', replace: true })
+        this.$router.replace({ name: 'login' })
       } catch (error) {
         this.$notificarErro('Não foi possível realizar logout', error)
+      }
+    },
+    async atualizarUsuario (usuario = null) {
+      const currentUser = usuario || JSON.parse(localStorage.getItem('usuario') || '{}')
+      if (!currentUser || Object.keys(currentUser).length === 0) {
+        return
+      }
+      this.usuario = currentUser
+      localStorage.setItem('usuario', JSON.stringify(this.usuario))
+      this.userProfile = this.usuario.profile || localStorage.getItem('profile') || 'user'
+      if (this.userProfile === 'superadmin') {
+        await this.loadTenantSelection()
       }
     },
     async listarConfiguracoes () {
       const { data } = await ListarConfiguracoes()
       localStorage.setItem('configuracoes', JSON.stringify(data))
     },
-    conectarSocket (usuario) {
-      socket.on(`${usuario.tenantId}:chat:updateOnlineBubbles`, data => {
-        this.$store.commit('SET_USERS_APP', data)
+    async loadTenantSelection () {
+      try {
+        const { data } = await ListarTenants()
+        this.tenants = data || []
+        const storedTenantId = localStorage.getItem('selectedTenantId')
+        if (storedTenantId && this.tenants.some(t => String(t.id) === storedTenantId)) {
+          this.selectedTenantId = storedTenantId
+        } else if (this.tenants.length > 0) {
+          this.selectedTenantId = String(this.tenants[0].id)
+          localStorage.setItem('selectedTenantId', this.selectedTenantId)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar tenants', error)
+      }
+    },
+    handleChangeTenant (value) {
+      const tenantId = String(value)
+      const previousTenantId = String(localStorage.getItem('selectedTenantId') || this.usuario?.tenantId || '')
+      if (tenantId === previousTenantId) {
+        return
+      }
+      this.selectedTenantId = tenantId
+      localStorage.setItem('selectedTenantId', tenantId)
+      localStorage.removeItem('filtrosAtendimento')
+      this.usuario = {
+        ...this.usuario,
+        tenantId
+      }
+      localStorage.setItem('usuario', JSON.stringify(this.usuario))
+      this.tenantViewVersion += 1
+      this.$root.$emit('tenant:changed', tenantId)
+      this.$q.notify({
+        type: 'positive',
+        message: 'Tenant selecionado: ' + (this.tenants.find(t => String(t.id) === tenantId)?.name || ''),
+        position: 'top'
       })
     },
-    atualizarUsuario () {
+    conectarSocket (usuario) {
       this.usuario = JSON.parse(localStorage.getItem('usuario'))
       if (this.usuario.status === 'offline') {
         socket.emit(`${this.usuario.tenantId}:setUserIdle`)
@@ -574,9 +760,16 @@ export default {
     }
     this.usuario = JSON.parse(localStorage.getItem('usuario'))
     this.userProfile = localStorage.getItem('profile')
+    if (this.userProfile === 'superadmin') {
+      await this.loadTenantSelection()
+    }
     await this.conectarSocket(this.usuario)
+    window.addEventListener('session-idle-updated', this.onSessionIdleUpdated)
+    this.startSessionCountdown()
   },
   destroyed () {
+    window.removeEventListener('session-idle-updated', this.onSessionIdleUpdated)
+    this.stopSessionCountdown()
     socket.disconnect()
   }
 }
@@ -584,5 +777,18 @@ export default {
 <style scoped>
 .q-img__image {
   background-size: contain;
+}
+
+.session-counter-blink {
+  animation: sessionBlink 0.9s step-end infinite;
+}
+
+@keyframes sessionBlink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0.35;
+  }
 }
 </style>

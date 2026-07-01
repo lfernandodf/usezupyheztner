@@ -7,11 +7,27 @@ import helmet from "helmet";
 import { logger } from "../utils/logger";
 
 export default async function express(app: Application): Promise<void> {
-  const origin = [process.env.FRONTEND_URL || "https://app.izing.io"];
+  const origin = [
+    process.env.FRONTEND_URL || "https://app.izing.io",
+    "http://localhost:3100",
+    "http://localhost:3101",
+    "http://localhost:8080",
+    "http://127.0.0.1:3100",
+    "http://127.0.0.1:3101",
+    "http://127.0.0.1:8080"
+  ];
   app.use(
     cors({
       origin,
-      credentials: true
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-Selected-Tenant',
+        'Accept'
+      ]
     })
   );
 

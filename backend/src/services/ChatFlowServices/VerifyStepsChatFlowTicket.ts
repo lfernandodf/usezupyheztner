@@ -38,6 +38,43 @@ const isNextSteps = async (
         ticket
       });
     }
+
+    // Fluxos informativos: se a etapa de destino tiver apenas "Qualquer resposta"
+    // encaminhando para outra etapa, retornamos automaticamente para essa etapa.
+    const nextStepConditions = Array.isArray(nextStep?.conditions)
+      ? nextStep.conditions
+      : [];
+
+    const autoReturnCondition = nextStepConditions.find((condition: any) => {
+      return (
+        condition?.type === "US" &&
+        Number(condition?.action) === 0 &&
+        condition?.nextStepId &&
+        String(condition?.nextStepId) !== String(nextStep?.id)
+      );
+    });
+
+    if (autoReturnCondition) {
+      const autoReturnStep = nodesList.find(
+        (n: any) => String(n.id) === String(autoReturnCondition.nextStepId)
+      );
+
+      if (autoReturnStep?.type === "node") {
+        await ticket.update({
+          stepChatFlow: autoReturnCondition.nextStepId,
+          botRetries: 0,
+          lastInteractionBot: new Date()
+        });
+
+        for (const interaction of autoReturnStep.interactions || []) {
+          await BuildSendMessageService({
+            msg: interaction,
+            tenantId: ticket.tenantId,
+            ticket
+          });
+        }
+      }
+    }
     // await SetTicketMessagesAsRead(ticket);
   }
 };
@@ -50,12 +87,13 @@ const isQueueDefine = async (
 ): Promise<void> => {
   // action = 1: enviar para fila: queue
   if (stepCondition.action === 1) {
-    ticket.update({
+    await ticket.update({
       queueId: stepCondition.queueId,
       chatFlowId: null,
       stepChatFlow: null,
       botRetries: 0,
-      lastInteractionBot: new Date()
+      lastInteractionBot: new Date(),
+      answered: true
     });
 
     await CreateLogTicketService({
@@ -89,16 +127,17 @@ const isUserDefine = async (
 ): Promise<void> => {
   // action = 2: enviar para determinado usuário
   if (stepCondition.action === 2) {
-    ticket.update({
+    await ticket.update({
       userId: stepCondition.userIdDestination,
       // status: "pending",
       chatFlowId: null,
       stepChatFlow: null,
       botRetries: 0,
-      lastInteractionBot: new Date()
+      lastInteractionBot: new Date(),
+      answered: true
     });
 
-    ticket.reload();
+    await ticket.reload();
 
     socketEmit({
       tenantId: ticket.tenantId,

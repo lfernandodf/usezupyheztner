@@ -207,6 +207,7 @@ export default {
       abrirModalQR: false,
       modalWhatsapp: false,
       whatsappSelecionado: {},
+      refreshTimer: null,
       listaChatFlow: [],
       whatsAppId: null,
       canais: [],
@@ -402,6 +403,15 @@ export default {
     this.isAdmin = localStorage.getItem('profile')
     this.listarWhatsapps()
     this.listarChatFlow()
+    this.refreshTimer = setInterval(() => {
+      this.listarWhatsapps()
+    }, 10000)
+  },
+  beforeDestroy () {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    }
   }
 }
 </script>

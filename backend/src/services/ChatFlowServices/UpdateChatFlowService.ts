@@ -27,6 +27,8 @@ const UpdateChatFlowService = async ({
   tenantId
 }: Request): Promise<ChatFlow> => {
   const { name, flow, userId, isActive, celularTeste } = chatFlowData;
+  const normalizedFlow = flow.flow;
+  normalizedFlow.name = name;
 
   const cahtFlow = await ChatFlow.findOne({
     where: { id: chatFlowId, tenantId },
@@ -37,7 +39,7 @@ const UpdateChatFlowService = async ({
     throw new AppError("ERR_NO_CHAT_FLOW_FOUND", 404);
   }
 
-  for await (const node of flow.flow.nodeList) {
+  for await (const node of normalizedFlow.nodeList) {
     if (node.type === "node") {
       for await (const item of node.interactions) {
         if (item.type === "MediaField" && item.data.media) {
@@ -62,7 +64,7 @@ const UpdateChatFlowService = async ({
 
   await cahtFlow.update({
     name,
-    flow: flow.flow,
+    flow: normalizedFlow,
     userId,
     isActive: flow.isActive,
     celularTeste: flow.celularTeste

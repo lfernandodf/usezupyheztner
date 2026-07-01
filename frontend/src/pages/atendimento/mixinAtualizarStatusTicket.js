@@ -22,6 +22,10 @@ export default {
           this.$store.commit('TICKET_FOCADO', {})
           this.$store.commit('SET_HAS_MORE', true)
           this.$store.dispatch('AbrirChatMensagens', ticket)
+          this.$root.$emit('ticket:status-updated', {
+            ticketId: ticket.id,
+            status: 'open'
+          })
         })
         .catch(error => {
           this.loading = false
@@ -48,6 +52,10 @@ export default {
           this.$store.commit('TICKET_FOCADO', {})
           this.$store.commit('SET_HAS_MORE', true)
           this.$store.dispatch('AbrirChatMensagens', ticket)
+          this.$root.$emit('ticket:status-updated', {
+            ticketId: ticket.id,
+            status: 'pending'
+          })
         })
         .catch(error => {
           this.loading = false
@@ -99,6 +107,10 @@ export default {
               }]
             })
             this.$store.commit('TICKET_FOCADO', {})
+            this.$root.$emit('ticket:status-updated', {
+              ticketId,
+              status
+            })
             if (status !== 'open') this.$router.push({ name: 'chat-empty' })
           })
           .catch(error => {

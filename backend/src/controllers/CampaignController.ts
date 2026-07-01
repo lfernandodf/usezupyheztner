@@ -26,7 +26,7 @@ interface CampaignData {
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
   const medias = req.files as Express.Multer.File[];
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -76,7 +76,7 @@ export const update = async (
   const { tenantId } = req.user;
   const medias = req.files as Express.Multer.File[];
 
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const campaignData: CampaignData = {
@@ -119,7 +119,7 @@ export const remove = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { campaignId } = req.params;
@@ -133,7 +133,7 @@ export const startCampaign = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { campaignId } = req.params;
@@ -154,7 +154,7 @@ export const cancelCampaign = async (
   res: Response
 ): Promise<Response> => {
   const { tenantId } = req.user;
-  if (req.user.profile !== "admin") {
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { campaignId } = req.params;

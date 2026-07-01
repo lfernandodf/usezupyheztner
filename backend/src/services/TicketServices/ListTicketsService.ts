@@ -29,6 +29,12 @@ interface Response {
   tickets: any[];
   count: number;
   hasMore: boolean;
+  tabTotals: {
+    open: number;
+    pending: number;
+    closed: number;
+    group: number;
+  };
 }
 
 const ListTicketsService = async ({
@@ -46,7 +52,9 @@ const ListTicketsService = async ({
   profile
 }: Request): Promise<Response> => {
   // check is admin
-  const isAdminShowAll = showAll == "true" && profile === "admin";
+  const isAdminShowAll =
+    (showAll == "true" && (profile === "admin" || profile === "superadmin")) ||
+    profile === "superadmin";
   const isUnread =
     withUnreadMessages && withUnreadMessages == "true" ? "S" : "N";
   const isNotAssigned =
@@ -97,7 +105,7 @@ const ListTicketsService = async ({
     const newArray: number[] = [];
     queuesIds.forEach(i => {
       const idx = queuesIdsUser.indexOf(+i);
-      if (idx) {
+      if (idx !== -1) {
         newArray.push(+i);
       }
     });
@@ -217,6 +225,35 @@ const ListTicketsService = async ({
   limit :limit offset :offset ;
 `;
 
+  const totalsQuery = `
+  with filtered as (
+    select
+      t.status,
+      coalesce(t."isGroup", false) as "isGroup"
+    from "Tickets" t
+    inner join "Whatsapps" w on (w.id = t."whatsappId")
+    left join "Contacts" c on (t."contactId" = c.id)
+    left join "Users" u on (u.id = t."userId")
+    left join "Queues" q on (t."queueId" = q.id)
+    where t."tenantId" = :tenantId
+      and c."tenantId" = :tenantId
+      and t.status in ( :status )
+      and (( :isShowAll = 'N' and (
+        (:isExistsQueueTenant = 'S' and t."queueId" in ( :queuesIdsUser ))
+        or t."userId" = :userId or exists (select 1 from "ContactWallets" cw where cw."walletId" = :userId and cw."contactId" = t."contactId") )
+      ) OR (:isShowAll = 'S') OR (t."isGroup" = true) OR (:isExistsQueueTenant = 'N') )
+      and (( :isUnread = 'S' and t."unreadMessages" > 0) OR (:isUnread = 'N'))
+      and ((:isNotAssigned = 'S' and t."userId" is null) OR (:isNotAssigned = 'N'))
+      and ((:isSearchParam = 'S' and ((t.id::varchar like :searchParam) or (exists (select 1 from "Contacts" c where c.id = t."contactId" and (upper(c."name") like upper(:searchParam) or c."number" like :searchParam)))) OR (:isSearchParam = 'N')))
+  )
+  select
+    count(*) filter (where status = 'open' and "isGroup" = false) as open,
+    count(*) filter (where status = 'pending' and "isGroup" = false) as pending,
+    count(*) filter (where status = 'closed' and "isGroup" = false) as closed,
+    count(*) filter (where "isGroup" = true) as "group"
+  from filtered;
+`;
+
   const limit = 30;
   const offset = limit * (+pageNumber - 1);
 
@@ -240,6 +277,24 @@ const ListTicketsService = async ({
     nest: true
   });
 
+  const totalsResult: any = await Ticket.sequelize?.query(totalsQuery, {
+    replacements: {
+      tenantId,
+      isQueuesIds,
+      status,
+      isShowAll,
+      isExistsQueueTenant,
+      queuesIdsUser,
+      userId,
+      isUnread,
+      isNotAssigned,
+      isSearchParam,
+      searchParam: `%${searchParam}%`
+    },
+    type: QueryTypes.SELECT,
+    nest: true
+  });
+
   let count = 0;
   let ticketsLength = 0;
   if (tickets?.length) {
@@ -248,10 +303,19 @@ const ListTicketsService = async ({
   }
   const hasMore = count > offset + ticketsLength;
 
+  const rawTotals = totalsResult?.[0] || {};
+  const tabTotals = {
+    open: Number(rawTotals.open || 0),
+    pending: Number(rawTotals.pending || 0),
+    closed: Number(rawTotals.closed || 0),
+    group: Number(rawTotals.group || 0)
+  };
+
   return {
     tickets: tickets || [],
     count,
-    hasMore
+    hasMore,
+    tabTotals
   };
 };
 

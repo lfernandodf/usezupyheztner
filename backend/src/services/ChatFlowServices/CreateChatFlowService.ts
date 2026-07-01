@@ -24,6 +24,8 @@ const CreateChatFlowService = async ({
   name,
   isActive
 }: Request): Promise<ChatFlow> => {
+  flow.name = name;
+
   for await (const node of flow.nodeList) {
     if (node.type === "node") {
       for await (const item of node.interactions) {
